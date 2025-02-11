@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'dart:html';
 //import 'dart:js';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'dart:ui_web' as ui_web;
 // import 'payment_webview.dart';
 
@@ -379,14 +381,15 @@ class _PayPageState extends State<PayPage> {
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue),
                       onPressed: () {
-                        // Navigator.push(
-                        //     context,
-                        //     MaterialPageRoute(
-                        //         builder: (context) => WebHtmlView(
-                        //               atomTokenId: atomTokenId.toString(),
-                        //               merchId: merchId,
-                        //               currentTxnId: currentTxnId,
-                        //             )));
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => WebHtmlView(
+                                      atomTokenId: atomTokenId.toString(),
+                                      merchId: merchId,
+                                      currentTxnId: currentTxnId,
+                                      onPaymentComplete: (String) {},
+                                    )));
                       },
                       child: const Text(
                         'Pay Now',
@@ -401,100 +404,86 @@ class _PayPageState extends State<PayPage> {
   }
 }
 
+class WebHtmlView extends StatefulWidget {
+  final String atomTokenId;
+  final String merchId;
+  final String currentTxnId;
+  final Function(String) onPaymentComplete;
 
-// class WebHtmlView extends StatefulWidget {
-//   final String atomTokenId;
-//   final String merchId;
-//   final String currentTxnId;
+  const WebHtmlView({
+    required this.atomTokenId,
+    required this.merchId,
+    required this.currentTxnId,
+    required this.onPaymentComplete,
+    Key? key,
+  }) : super(key: key);
 
-//   const WebHtmlView({
-//     required this.atomTokenId,
-//     required this.merchId,
-//     required this.currentTxnId,
-//     super.key,
-//   });
+  @override
+  State<WebHtmlView> createState() => _WebHtmlViewState();
+}
 
-//   @override
-//   State<WebHtmlView> createState() => _WebHtmlViewState();
-// }
+class _WebHtmlViewState extends State<WebHtmlView> {
+  late InAppWebViewController _webViewController;
 
-// class _WebHtmlViewState extends State<WebHtmlView> {
-//   final String viewId = 'payment-view-${DateTime.now().millisecondsSinceEpoch}';
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     log("atomTokenId : ${widget.atomTokenId}");
-
-//     // Register iframe only once
-   
-//       ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
-//         final iframe = IFrameElement()
-//           ..style.border = 'none'
-//           ..style.width = '100%'
-//           ..style.height = '100%'
-//           ..setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups")
-//           ..allow = "payment"
-//           ..srcdoc = '''
-//             <!DOCTYPE html>
-//             <html>
-//             <head>
-//               <meta name="viewport" content="width=device-width, initial-scale=1">
-//               <script src="https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js"></script>
-//               <style>
-//                 body { margin: 0; padding: 0; width: 100%; height: 100%; }
-//                 #payment-form { width: 100%; height: 100%; }
-//               </style>
-//             </head>
-//             <body>
-//               <div id="payment-form"></div>
-//               <script>
-//                 function initPayment() {
-//                   const options = {
-//                     "atomTokenId": "${widget.atomTokenId}",
-//                     "merchId": "${widget.merchId}",
-//                     "custEmail": "test.user@gmail.com",
-//                     "custMobile": "8888888888",
-//                     "returnUrl": "https://www.atomtech.in/aipay-demo/uat_response",
-//                   };
-//                   new AtomPaynetz(options, 'uat');
-
-//                   // Notify Flutter when payment is done
-//                   window.addEventListener("message", function(event) {
-//                     if (event.origin === "https://pgtest.atomtech.in") {
-//                       window.parent.postMessage(event.data, "*");
-//                     }
-//                   });
-//                 }
-
-//                 document.addEventListener('DOMContentLoaded', initPayment);
-//               </script>
-//             </body>
-//             </html>
-//           ''';
-
-//         return iframe;
-//       });
-    
-
-//     // Listen for messages from iframe
-//     window.onMessage.listen((event) {
-//       if (event.origin == "https://pgtest.atomtech.in") {
-//         log("Payment Response: ${event.data}");
-//         // Handle the payment response (navigate or show a success/failure message)
-//       }
-//     });
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: SizedBox.expand(
-//         child: HtmlElementView(
-//           viewType: viewId,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Payment'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: InAppWebView(
+        initialData: InAppWebViewInitialData(
+          data: '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <script src="https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js"></script>
+              <style>
+                body { margin: 0; padding: 0; width: 100%; height: 100%; }
+                #payment-form { width: 100%; height: 100%; }
+              </style>
+            </head>
+            <body>
+              <div id="payment-form"></div>
+              <script>
+                function initPayment() {
+                  // Atom Payment Gateway Initialization
+                  const options = {
+                    "atomTokenId": "${widget.atomTokenId}",
+                    "merchId": "${widget.merchId}",
+                    "custEmail": "test.user@gmail.com",
+                    "custMobile": "8888888888",
+                    "returnUrl": "https://www.atomtech.in/aipay-demo/uat_response"
+                  };
+                  new AtomPaynetz(options, 'uat');
+                }
+                document.addEventListener('DOMContentLoaded', initPayment);
+              </script>
+            </body>
+            </html>
+          ''',
+        ),
+        onWebViewCreated: (controller) {
+          _webViewController = controller;
+        },
+        onLoadStop: (controller, url) async {
+          String? currentUrl = url?.toString();
+          if (currentUrl != null && currentUrl.contains("uat_response")) {
+            widget.onPaymentComplete(currentUrl);
+            if (mounted) {
+              // Navigator.of(context).pop();
+            }
+          }
+        },
+        onConsoleMessage: (controller, consoleMessage) {
+          debugPrint("WebView Console: \${consoleMessage.message}");
+        },
+      ),
+    );
+  }
+}
