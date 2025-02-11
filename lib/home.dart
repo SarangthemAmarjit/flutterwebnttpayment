@@ -1,15 +1,18 @@
 // ignore_for_file: constant_identifier_names
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
 //import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'dart:html';
 //import 'dart:js';
 
-import 'dart:ui_web' as ui_web;
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:window_manager/window_manager.dart';
+
 // import 'payment_webview.dart';
 
 class PayPage extends StatefulWidget {
@@ -264,58 +267,57 @@ class _PayPageState extends State<PayPage> {
 
   // Payment Response
   Future<void> handlePaymentResponse(String encData) async {
-    try {
-      debugPrint('Handling payment response with encData: $encData');
+    debugPrint('Handling payment response with encData: $encData');
 
-      final decryptedData = await decrypt(encData);
-      debugPrint('Decrypted response data: $decryptedData');
+    final decryptedData = await decrypt(encData);
+    debugPrint('Decrypted response data: $decryptedData');
 
-      // Step 2: Send decrypted data to your Node.js server
-      final response = await http.post(
-        Uri.parse('http://localhostfdfdf:3000/Response'),
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'decryptedData': decryptedData, // Send the decrypted data to server
-          'merchId': merchId,
-        },
-      );
+    //   // Step 2: Send decrypted data to your Node.js server
+    //   final response = await http.post(
+    //     Uri.parse('http://localhost:3000/Response'),
+    //     headers: {
+    //       'content-type': 'application/x-www-form-urlencoded',
+    //     },
+    //     body: {
+    //       'decryptedData': decryptedData, // Send the decrypted data to server
+    //       'merchId': merchId,
+    //     },
+    //   );
 
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        debugPrint('Server response: $jsonData');
+    //   if (response.statusCode == 200) {
+    //     final jsonData = json.decode(response.body);
+    //     debugPrint('Server response: $jsonData');
 
-        final respArray = jsonData as Map<String, dynamic>;
-        debugPrint('Response array constructed: $respArray');
+    //     final respArray = jsonData as Map<String, dynamic>;
+    //     debugPrint('Response array constructed: $respArray');
 
-        final signature = await generateSignature(respArray);
-        debugPrint('Generated signature for validation: $signature');
+    //     final signature = await generateSignature(respArray);
+    //     debugPrint('Generated signature for validation: $signature');
 
-        if (signature == respArray['payDetails']['signature']) {
-          debugPrint('Signature matched. Validating transaction status.');
+    //     if (signature == respArray['payDetails']['signature']) {
+    //       debugPrint('Signature matched. Validating transaction status.');
 
-          if (respArray['responseDetails']['statusCode'] == 'OTS0000') {
-            debugPrint('Transaction successful');
-            //showSuccess('Transaction successful');
-            debugPrint('Complete response array: $respArray');
-          } else {
-            debugPrint(
-                'Transaction failed with status code: ${respArray['responseDetails']['statusCode']}');
-            //showError('Transaction failed');
-          }
-        } else {
-          debugPrint('Signature mismatched!! Transaction failed');
-          //showError('Transaction failed - Invalid signature');
-        }
-      } else {
-        debugPrint('Server error: ${response.statusCode}');
-        //showError('Server error occurred');
-      }
-    } catch (e) {
-      debugPrint('Error processing payment response: $e');
-      //showError('Error processing payment response: $e');
-    }
+    //       if (respArray['responseDetails']['statusCode'] == 'OTS0000') {
+    //         debugPrint('Transaction successful');
+    //         //showSuccess('Transaction successful');
+    //         debugPrint('Complete response array: $respArray');
+    //       } else {
+    //         debugPrint(
+    //             'Transaction failed with status code: ${respArray['responseDetails']['statusCode']}');
+    //         //showError('Transaction failed');
+    //       }
+    //     } else {
+    //       debugPrint('Signature mismatched!! Transaction failed');
+    //       //showError('Transaction failed - Invalid signature');
+    //     }
+    //   } else {
+    //     debugPrint('Server error: ${response.statusCode}');
+    //     //showError('Server error occurred');
+    //   }
+    // } catch (e) {
+    //   debugPrint('Error processing payment response: $e');
+    //   //showError('Error processing payment response: $e');
+    // }
   }
 
   // void showError(String message) {
@@ -379,14 +381,14 @@ class _PayPageState extends State<PayPage> {
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue),
                       onPressed: () {
-                        // Navigator.push(
-                        //     context,
-                        //     MaterialPageRoute(
-                        //         builder: (context) => WebHtmlView(
-                        //               atomTokenId: atomTokenId.toString(),
-                        //               merchId: merchId,
-                        //               currentTxnId: currentTxnId,
-                        //             )));
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => WebHtmlView(
+                                      atomTokenId: atomTokenId.toString(),
+                                      merchId: merchId,
+                                      currentTxnId: currentTxnId,
+                                    )));
                       },
                       child: const Text(
                         'Pay Now',
@@ -401,100 +403,121 @@ class _PayPageState extends State<PayPage> {
   }
 }
 
+class WebHtmlView extends StatefulWidget {
+  final String atomTokenId;
+  final String merchId;
+  final String currentTxnId;
 
-// class WebHtmlView extends StatefulWidget {
-//   final String atomTokenId;
-//   final String merchId;
-//   final String currentTxnId;
+  const WebHtmlView({
+    required this.atomTokenId,
+    required this.merchId,
+    required this.currentTxnId,
+    super.key,
+  });
 
-//   const WebHtmlView({
-//     required this.atomTokenId,
-//     required this.merchId,
-//     required this.currentTxnId,
-//     super.key,
-//   });
+  @override
+  State<WebHtmlView> createState() => _WebHtmlViewState();
+}
 
-//   @override
-//   State<WebHtmlView> createState() => _WebHtmlViewState();
-// }
+class _WebHtmlViewState extends State<WebHtmlView> {
+  late InAppWebViewController _webViewController;
+  final String _returnUrl = 'https://www.atomtech.in/aipay-demo/uat_response';
 
-// class _WebHtmlViewState extends State<WebHtmlView> {
-//   final String viewId = 'payment-view-${DateTime.now().millisecondsSinceEpoch}';
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Payment'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: InAppWebView(
+        initialSettings: InAppWebViewSettings(
+            supportMultipleWindows: true,
+            javaScriptEnabled: true,
+            javaScriptCanOpenWindowsAutomatically: true),
+        initialData: InAppWebViewInitialData(
+          data: '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <script src="https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js"></script>
+              <style>
+                body { margin: 0; padding: 0; width: 100%; height: 100%; }
+                #payment-form { width: 100%; height: 100%; }
+              </style>
+            </head>
+            <body>
+              <div id="payment-form"></div>
+              <script>
+                function initPayment() {
+                  const options = {
+                    "atomTokenId": "${widget.atomTokenId}",
+                    "merchId": "${widget.merchId}",
+                    "custEmail": "test.user@gmail.com",
+                    "custMobile": "8888888888",
+                    "returnUrl": "$_returnUrl"
+                  };
+                  new AtomPaynetz(options, 'uat');
+                }
+                document.addEventListener('DOMContentLoaded', initPayment);
+              </script>
+            </body>
+            </html>
+          ''',
+        ),
+        onCreateWindow: (controller, createWindowRequest) async {
+          // Handle new window by loading in the same WebView
+          return null;
+        },
+        onWebViewCreated: (controller) {
+          _webViewController = controller;
+          // Register handler to receive payment completion from JavaScript
+          // controller.addJavaScriptHandler(
+          //     handlerName: 'paymentComplete',
+          //     callback: (args) {
+          //       // Ensure the callback is triggered and close the WebView
 
-//   @override
-//   void initState() {
-//     super.initState();
-//     log("atomTokenId : ${widget.atomTokenId}");
+          //       Navigator.of(context).pop();
+          //     });
+        },
+        onLoadStop: (controller, url) async {
+          final currentUrl = url?.toString();
+          log('WebView loaded: $currentUrl');
 
-//     // Register iframe only once
-   
-//       ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
-//         final iframe = IFrameElement()
-//           ..style.border = 'none'
-//           ..style.width = '100%'
-//           ..style.height = '100%'
-//           ..setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups")
-//           ..allow = "payment"
-//           ..srcdoc = '''
-//             <!DOCTYPE html>
-//             <html>
-//             <head>
-//               <meta name="viewport" content="width=device-width, initial-scale=1">
-//               <script src="https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js"></script>
-//               <style>
-//                 body { margin: 0; padding: 0; width: 100%; height: 100%; }
-//                 #payment-form { width: 100%; height: 100%; }
-//               </style>
-//             </head>
-//             <body>
-//               <div id="payment-form"></div>
-//               <script>
-//                 function initPayment() {
-//                   const options = {
-//                     "atomTokenId": "${widget.atomTokenId}",
-//                     "merchId": "${widget.merchId}",
-//                     "custEmail": "test.user@gmail.com",
-//                     "custMobile": "8888888888",
-//                     "returnUrl": "https://www.atomtech.in/aipay-demo/uat_response",
-//                   };
-//                   new AtomPaynetz(options, 'uat');
+          // // Check if redirected to the return URL
+          // if (currentUrl == _returnUrl) {
+          //   Navigator.of(context).pop();
+          // }
 
-//                   // Notify Flutter when payment is done
-//                   window.addEventListener("message", function(event) {
-//                     if (event.origin === "https://pgtest.atomtech.in") {
-//                       window.parent.postMessage(event.data, "*");
-//                     }
-//                   });
-//                 }
-
-//                 document.addEventListener('DOMContentLoaded', initPayment);
-//               </script>
-//             </body>
-//             </html>
-//           ''';
-
-//         return iframe;
-//       });
-    
-
-//     // Listen for messages from iframe
-//     window.onMessage.listen((event) {
-//       if (event.origin == "https://pgtest.atomtech.in") {
-//         log("Payment Response: ${event.data}");
-//         // Handle the payment response (navigate or show a success/failure message)
-//       }
-//     });
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: SizedBox.expand(
-//         child: HtmlElementView(
-//           viewType: viewId,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
+          // // Inject JavaScript to handle payment response page
+          // if (currentUrl?.contains('processResponse.jsp') == true) {
+          //   await controller.canGoBack();
+          //   await controller.evaluateJavascript(source: '''
+          //     if (typeof sendDataToMainPage === 'function') {
+          //       // Override to send data to Flutter instead of window.opener
+          //       sendDataToMainPage = function(response) {
+          //         window.flutter_inappwebview.callHandler('paymentComplete', response);
+          //       };
+          //     }
+          //   ''');
+          // }
+        },
+        onReceivedError: (controller, request, error) {
+          log("errorr : $error");
+        },
+        onConsoleMessage: (controller, consoleMessage) async {
+          log('WebView Console: ${consoleMessage.message}');
+          // controller.loadUrl(
+          //     urlRequest:   URLRequest(
+          //         url: WebUri.uri(Uri(
+          //             host:
+          //                 'https://pgtest.atomtech.in/AtomInstaPay/checkout-frame.jsp'))));
+        },
+      ),
+    );
+  }
+}
