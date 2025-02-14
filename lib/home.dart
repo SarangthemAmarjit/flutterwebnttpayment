@@ -1,17 +1,22 @@
 // ignore_for_file: constant_identifier_names
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter_web_kit/atom_pay_helper.dart';
+import 'package:flutter_web_kit/controller/tapcontroller.dart';
+import 'package:flutter_web_kit/newpay.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 //import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'dart:html';
 //import 'dart:js';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'dart:ui_web' as ui_web;
+import 'package:window_manager/window_manager.dart';
+
 // import 'payment_webview.dart';
 
 class PayPage extends StatefulWidget {
@@ -34,7 +39,7 @@ class _PayPageState extends State<PayPage> {
   static const res_DecKey = '75AEF0FA1B94B3C10D4F5B268F757F11';
   static const res_Salt = '75AEF0FA1B94B3C10D4F5B268F757F11';
   static const resHashKey = "KEYRESP123657234";
-  static const merchId = "317157";
+  static const merchId = "317159";
   static const merchPass = "Test@123";
   static const prodId = "NSE";
   final authUrl = "https://caller.atomtech.in/ots/aipay/auth";
@@ -222,7 +227,11 @@ class _PayPageState extends State<PayPage> {
           final encryptedData = encDataPart.split('=')[1];
           final extractedData = ['encData', encryptedData];
           debugPrint("Extracted encrypted response data: $extractedData");
-
+          var transactionResult = "";
+          String transactionid = '';
+          int? transactionstatus;
+          String paymentmethodname = '';
+          String totalamount = '';
           try {
             // Decrypt the extracted data
             final decryptedData = await decrypt(extractedData[1]);
@@ -266,58 +275,57 @@ class _PayPageState extends State<PayPage> {
 
   // Payment Response
   Future<void> handlePaymentResponse(String encData) async {
-    try {
-      debugPrint('Handling payment response with encData: $encData');
+    debugPrint('Handling payment response with encData: $encData');
 
-      final decryptedData = await decrypt(encData);
-      debugPrint('Decrypted response data: $decryptedData');
+    final decryptedData = await decrypt(encData);
+    debugPrint('Decrypted response data: $decryptedData');
 
-      // Step 2: Send decrypted data to your Node.js server
-      final response = await http.post(
-        Uri.parse('http://localhostfdfdf:3000/Response'),
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'decryptedData': decryptedData, // Send the decrypted data to server
-          'merchId': merchId,
-        },
-      );
+    //   // Step 2: Send decrypted data to your Node.js server
+    //   final response = await http.post(
+    //     Uri.parse('http://localhost:3000/Response'),
+    //     headers: {
+    //       'content-type': 'application/x-www-form-urlencoded',
+    //     },
+    //     body: {
+    //       'decryptedData': decryptedData, // Send the decrypted data to server
+    //       'merchId': merchId,
+    //     },
+    //   );
 
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        debugPrint('Server response: $jsonData');
+    //   if (response.statusCode == 200) {
+    //     final jsonData = json.decode(response.body);
+    //     debugPrint('Server response: $jsonData');
 
-        final respArray = jsonData as Map<String, dynamic>;
-        debugPrint('Response array constructed: $respArray');
+    //     final respArray = jsonData as Map<String, dynamic>;
+    //     debugPrint('Response array constructed: $respArray');
 
-        final signature = await generateSignature(respArray);
-        debugPrint('Generated signature for validation: $signature');
+    //     final signature = await generateSignature(respArray);
+    //     debugPrint('Generated signature for validation: $signature');
 
-        if (signature == respArray['payDetails']['signature']) {
-          debugPrint('Signature matched. Validating transaction status.');
+    //     if (signature == respArray['payDetails']['signature']) {
+    //       debugPrint('Signature matched. Validating transaction status.');
 
-          if (respArray['responseDetails']['statusCode'] == 'OTS0000') {
-            debugPrint('Transaction successful');
-            //showSuccess('Transaction successful');
-            debugPrint('Complete response array: $respArray');
-          } else {
-            debugPrint(
-                'Transaction failed with status code: ${respArray['responseDetails']['statusCode']}');
-            //showError('Transaction failed');
-          }
-        } else {
-          debugPrint('Signature mismatched!! Transaction failed');
-          //showError('Transaction failed - Invalid signature');
-        }
-      } else {
-        debugPrint('Server error: ${response.statusCode}');
-        //showError('Server error occurred');
-      }
-    } catch (e) {
-      debugPrint('Error processing payment response: $e');
-      //showError('Error processing payment response: $e');
-    }
+    //       if (respArray['responseDetails']['statusCode'] == 'OTS0000') {
+    //         debugPrint('Transaction successful');
+    //         //showSuccess('Transaction successful');
+    //         debugPrint('Complete response array: $respArray');
+    //       } else {
+    //         debugPrint(
+    //             'Transaction failed with status code: ${respArray['responseDetails']['statusCode']}');
+    //         //showError('Transaction failed');
+    //       }
+    //     } else {
+    //       debugPrint('Signature mismatched!! Transaction failed');
+    //       //showError('Transaction failed - Invalid signature');
+    //     }
+    //   } else {
+    //     debugPrint('Server error: ${response.statusCode}');
+    //     //showError('Server error occurred');
+    //   }
+    // } catch (e) {
+    //   debugPrint('Error processing payment response: $e');
+    //   //showError('Error processing payment response: $e');
+    // }
   }
 
   // void showError(String message) {
@@ -334,6 +342,7 @@ class _PayPageState extends State<PayPage> {
 
   @override
   Widget build(BuildContext context) {
+    GetxTapController gcontroller = Get.put(GetxTapController());
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -381,15 +390,15 @@ class _PayPageState extends State<PayPage> {
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue),
                       onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => WebHtmlView(
-                                      atomTokenId: atomTokenId.toString(),
-                                      merchId: merchId,
-                                      currentTxnId: currentTxnId,
-                                      onPaymentComplete: (String) {},
-                                    )));
+                        gcontroller.initNdpsPayment(
+                          context: context,
+                          responseHashKey: gcontroller.responseHashKey,
+                          responseDecryptionKey:
+                              gcontroller.responseDecryptionKey,
+                          amount: '200',
+                          address: 'fsdfsdf',
+                          name: 'amarjit',
+                        );
                       },
                       child: const Text(
                         'Pay Now',
@@ -408,15 +417,13 @@ class WebHtmlView extends StatefulWidget {
   final String atomTokenId;
   final String merchId;
   final String currentTxnId;
-  final Function(String) onPaymentComplete;
 
   const WebHtmlView({
     required this.atomTokenId,
     required this.merchId,
     required this.currentTxnId,
-    required this.onPaymentComplete,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<WebHtmlView> createState() => _WebHtmlViewState();
@@ -424,6 +431,7 @@ class WebHtmlView extends StatefulWidget {
 
 class _WebHtmlViewState extends State<WebHtmlView> {
   late InAppWebViewController _webViewController;
+  final String _returnUrl = 'https://cubeten.com/';
 
   @override
   Widget build(BuildContext context) {
@@ -436,6 +444,11 @@ class _WebHtmlViewState extends State<WebHtmlView> {
         ),
       ),
       body: InAppWebView(
+        initialSettings: InAppWebViewSettings(
+          supportMultipleWindows: true,
+          javaScriptEnabled: true,
+          javaScriptCanOpenWindowsAutomatically: true,
+        ),
         initialData: InAppWebViewInitialData(
           data: '''
             <!DOCTYPE html>
@@ -452,13 +465,13 @@ class _WebHtmlViewState extends State<WebHtmlView> {
               <div id="payment-form"></div>
               <script>
                 function initPayment() {
-                  // Atom Payment Gateway Initialization
                   const options = {
                     "atomTokenId": "${widget.atomTokenId}",
                     "merchId": "${widget.merchId}",
                     "custEmail": "test.user@gmail.com",
                     "custMobile": "8888888888",
-                    "returnUrl": "https://www.atomtech.in/aipay-demo/uat_response"
+                    "returnUrl": "https://pgtest.atomtech.in/mobilesdk/param",
+                       "userAgent": "mobile_webView"
                   };
                   new AtomPaynetz(options, 'uat');
                 }
@@ -468,20 +481,59 @@ class _WebHtmlViewState extends State<WebHtmlView> {
             </html>
           ''',
         ),
+
+        // 🚀 Capture new popups and open them in the same WebView
+        onCreateWindow: (controller, createWindowRequest) async {
+          // await controller.loadUrl(
+          //     urlRequest: URLRequest(url: createWindowRequest.request.url));
+          // return true;
+        },
+
+        // 🚀 Capture WebView navigation events
         onWebViewCreated: (controller) {
           _webViewController = controller;
+
+          // 🔥 Listen for JavaScript postMessage from Atom Payment
+          // _webViewController.addJavaScriptHandler(
+          //   handlerName: 'paymentComplete',
+          //   callback: (args) {
+          //     log('🔹 Payment response received: $args');
+          //     Navigator.of(context)
+          //         .pop(); // Close WebView on payment completion
+          //   },
+          // );
         },
+
         onLoadStop: (controller, url) async {
-          String? currentUrl = url?.toString();
-          if (currentUrl != null && currentUrl.contains("uat_response")) {
-            widget.onPaymentComplete(currentUrl);
-            if (mounted) {
-              // Navigator.of(context).pop();
-            }
+          final currentUrl = url?.toString();
+          log('📌 WebView loaded: $currentUrl');
+
+          // ✅ If redirected to return URL, close WebView
+          if (currentUrl == _returnUrl) {
+            log('✅ Payment completed! Closing WebView...');
+            Navigator.of(context).pop();
+          }
+
+          // ✅ Override JavaScript to send response to Flutter instead of window.opener
+          if (currentUrl?.contains('processResponse.jsp') == true) {
+            await controller.evaluateJavascript(source: '''
+              if (typeof sendDataToMainPage === 'function') {
+                sendDataToMainPage = function(response) {
+                  window.flutter_inappwebview.callHandler('paymentComplete', response);
+                };
+              }
+            ''');
           }
         },
+
+        // 🚀 Handle WebView console messages
         onConsoleMessage: (controller, consoleMessage) {
-          debugPrint("WebView Console: \${consoleMessage.message}");
+          log('🖥️ WebView Console: ${consoleMessage.message}');
+        },
+
+        // 🚨 Handle WebView errors
+        onReceivedError: (controller, request, error) {
+          log("❌ WebView Error: $error");
         },
       ),
     );
